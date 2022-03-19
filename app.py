@@ -231,9 +231,7 @@ def orders():
         else:
             return f"Order with id {data.get('id')} already exists"
     elif request.method == 'GET':
-        all_orders = db.session.query(Order.id, Order.name, Order.address,
-                                      Order.price, User.id.label("user_id"), User.first_name, User.last_name).\
-            join(User, and_(Order.customer_id == User.id)).all()
+        all_orders = db.session.query(Order).all()
         all_orders_list = []
         for order_ in all_orders:
             temp_dict = {}
@@ -241,7 +239,12 @@ def orders():
             temp_dict['name'] = order_.name
             temp_dict['address'] = order_.address
             temp_dict['price'] = order_.price
-            temp_dict['customer_name'] = order_.first_name
+            temp_dict['customer_name'] = ''
+            temp_dict['executor_name'] = ''
+            if order_.customer:
+                temp_dict['customer_name'] = order_.customer.first_name
+            if order_.executor:
+                temp_dict['executor_name'] = order_.executor.first_name
             all_orders_list.append(temp_dict)
         return jsonify(all_orders_list)
     return 'Unknown type request'
@@ -249,16 +252,18 @@ def orders():
 
 @app.route('/orders/<int:uid>/', methods=['GET', 'PUT', 'DELETE'])
 def orders_id(uid):
-    all_orders = db.session.query(Order.id, Order.name, User.id.label("user_id"), User.first_name, User.last_name). \
-        filter(Order.id == uid).join(User, and_(Order.customer_id == User.id)).first()
+    all_orders = db.session.query(Order).filter(Order.id == uid).one()
     if all_orders:
         if request.method == 'GET':
             temp_table = {}
             temp_table['Order_id'] = all_orders.id
             temp_table['Order_name'] = all_orders.name
-            temp_table['customer_name'] = all_orders.first_name
-            temp_table['last_name'] = all_orders.last_name
-            temp_table['user_id'] = all_orders.user_id
+            temp_table['Customer_name'] = ''
+            temp_table['executor_name'] = ''
+            if all_orders.customer:
+                temp_table['Customer_name'] = all_orders.customer.first_name
+            if all_orders.executor:
+                temp_table['executor_name'] = all_orders.executor.first_name
             return jsonify(temp_table)
         elif request.method == 'DELETE':
             item_del = Order.query.get(uid)
@@ -335,6 +340,8 @@ def offers_id(uid):
             temp_dict = {}
             temp_dict['id'] = offer_.id
             temp_dict['order_id'] = offer_.order_id
+            if all_offers.user:
+                temp_dict['executor_name'] = all_offers.user.first_name
             temp_dict['executor_id'] = offer_.executor_id
             return jsonify(temp_dict)
         elif request.method == 'DELETE':
